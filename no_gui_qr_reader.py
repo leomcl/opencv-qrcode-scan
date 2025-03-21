@@ -2,6 +2,7 @@ import cv2
 import csv
 import time
 from datetime import date, datetime
+from picamera2 import Picamera2
 
 def main():
     # Get current date and time
@@ -13,12 +14,10 @@ def main():
     
     # Initialize camera
     print("Initializing camera...")
-    cap = cv2.VideoCapture(0)
-    
-    # Check if camera opened successfully
-    if not cap.isOpened():
-        print("Error: Could not open camera.")
-        return
+    picam2 = Picamera2()
+    config = picam2.create_preview_configuration()
+    picam2.configure(config)
+    picam2.start()
     
     # Initialize QR code detector
     detector = cv2.QRCodeDetector()
@@ -33,11 +32,7 @@ def main():
     try:
         while True:
             # Capture frame
-            ret, frame = cap.read()
-            
-            if not ret:
-                print("Error: Can't receive frame from camera")
-                break
+            frame = picam2.capture_array()
             
             # Detect and decode QR code
             data, bbox, _ = detector.detectAndDecode(frame)
@@ -73,7 +68,7 @@ def main():
         print("\nQR code scanner stopped by user.")
     finally:
         # Release resources
-        cap.release()
+        picam2.close()
         print("Camera released.")
 
 if __name__ == "__main__":
