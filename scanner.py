@@ -1,9 +1,54 @@
 import cv2
 import time
-import csv
+import json
+import subprocess
 from datetime import date, datetime
 from picamera2 import Picamera2
 from pyzbar.pyzbar import decode
+
+def validate_code_external(code):
+    """Call external validation script and parse result"""
+    try:
+        # Path to virtual environment python and script
+        venv_python = "/home/leo/opencv-qrcode-scan/venv/bin/python"
+        validate_script = "/home/leo/opencv-qrcode-scan/validate_code.py"
+        
+        print(f"Validating code: {code} via external script")
+        
+        # Run the validation script with the code
+        result = subprocess.run(
+            [venv_python, validate_script, code],
+            capture_output=True,
+            text=True,
+            check=False
+        )
+        
+        # Check if the command succeeded
+        if result.returncode != 0:
+            print(f"Validation script error: {result.stderr}")
+            return False
+        
+        # Debug output
+        print(f"Script stdout: {result.stdout}")
+        
+        # Extract the JSON part (last line of output)
+        stdout_lines = result.stdout.strip().split('\n')
+        json_line = stdout_lines[-1]  # Get the last line which should be the JSON
+        
+        # Parse the JSON output
+        try:
+            validation_result = json.loads(json_line)
+            is_valid = validation_result.get("is_valid", False)
+            print(f"Validation result: {validation_result}")
+            print(f"Is valid: {is_valid}")
+            return is_valid
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error: {e}")
+            print(f"Raw output: {repr(result.stdout)}")
+            return False
+    except Exception as e:
+        print(f"Error validating code: {e}")
+        return False
 
 def main():
     print("Initializing camera...")
@@ -63,11 +108,20 @@ def main():
                         print(f"Data found: {data} | Date: {datestamp} | Time: {timestamp}")
                         print(f"QR Type: {obj.type}, Position: {obj.rect}")
                         
+                        # Verify the code using external validation script
+                        print("Verifying code...")
+                        is_valid = validate_code_external(data)
+                        
+                        if is_valid:
+                            print("✅ CODE VALID - Access granted")
+                        else:
+                            print("❌ CODE INVALID - Access denied")
+                        
                         # Save to CSV
                         try:
                             with open('Database.csv', mode='a') as csvfile:
                                 csv_writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_ALL)
-                                csv_writer.writerow([data, datestamp, timestamp])
+                                csv_writer.writerow([data, datestamp, timestamp, "Valid" if is_valid else "Invalid"])
                         except Exception as e:
                             print(f"Error writing to CSV: {e}")
                         
@@ -75,7 +129,7 @@ def main():
                         last_data = data
                         scan_count = 0  # Reset counter after successful scan
                 except Exception as e:
-                    print(f"Error decoding QR: {e}")
+                    print(f"Error processing QR: {e}")
             
             time.sleep(0.1)
     
@@ -87,4 +141,4 @@ def main():
         print(f"Total frames processed: {scan_count}")
 
 if __name__ == "__main__":
-    main()
+    main() 
