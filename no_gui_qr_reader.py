@@ -3,6 +3,7 @@ import time
 import csv
 from datetime import date, datetime
 from picamera2 import Picamera2
+from pyzbar.pyzbar import decode
 
 def main():
     print("Initializing camera...")
@@ -11,9 +12,6 @@ def main():
     config = picam2.create_preview_configuration()
     picam2.configure(config)
     picam2.start()
-
-    # QR code detector
-    detector = cv2.QRCodeDetector()
 
     # For rate limiting detections
     last_detection_time = 0
@@ -25,14 +23,21 @@ def main():
         while True:
             # Capture frame
             frame = picam2.capture_array()
-
-            # Detect and decode QR code
-            data, bbox, _ = detector.detectAndDecode(frame)
-
-            # If QR code detected
+            
+            # Convert to grayscale for better detection
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # Detect and decode QR codes
+            decoded_objects = decode(gray)
+            
+            # Current time for rate limiting
             current_time = time.time()
-            if data and bbox is not None:
-                if data != last_data or (current_time - last_detection_time) > cooldown_period:
+            
+            # Process detected QR codes
+            for obj in decoded_objects:
+                data = obj.data.decode('utf-8')
+                
+                if data and (data != last_data or (current_time - last_detection_time) > cooldown_period):
                     now = datetime.now()
                     timestamp = now.strftime("%H:%M:%S")
                     today = date.today()
