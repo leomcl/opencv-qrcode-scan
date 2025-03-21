@@ -116,14 +116,7 @@ def main():
                             print("✅ CODE VALID - Access granted")
                         else:
                             print("❌ CODE INVALID - Access denied")
-                        
-                        # Save to CSV
-                        try:
-                            with open('Database.csv', mode='a') as csvfile:
-                                csv_writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_ALL)
-                                csv_writer.writerow([data, datestamp, timestamp, "Valid" if is_valid else "Invalid"])
-                        except Exception as e:
-                            print(f"Error writing to CSV: {e}")
+                                               
                         
                         last_detection_time = current_time
                         last_data = data
